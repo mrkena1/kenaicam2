@@ -15,12 +15,12 @@ const SCREENSHOT_INTERVAL  = 3000; // كل 3 ثواني
 //  روابط صور الميمات
 // ══════════════════════════════════════════════════
 const MEME_PATHS = {
-  sonic:     "./memes/Sonic.jpeg",
-  cara:      "./memes/cara.jpeg",
-  cristiano: "./memes/cristiano.png",
-  lengua:    "./memes/gato1.png",
-  ceja:      "./memes/perro.jpeg",
-  rata:      "./memes/rata.jpeg",
+  sonic:     "./memes/pdo.jpg",
+  cara:      "./memes/huh.jpg",
+  cristiano: "./memes/justboy.jpg",
+  lengua:    "./memes/bo33.jpg",
+  ceja:      "./memes/griffth.jpg",
+  rata:      "./memes/shay.jpg",
 };
 
 // ══════════════════════════════════════════════════
