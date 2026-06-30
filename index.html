@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Meme Detector</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #0d0d0d; color: #fff;
+    font-family: -apple-system, "Segoe UI", Tahoma, sans-serif;
+    overflow: hidden;
+  }
+
+  #app { width: 100%; height: 100vh; position: relative; }
+
+  /* ══════════════════════════════
+     شاشة البداية — تصميم "مفاجأة"
+  ══════════════════════════════ */
+  #startScreen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0;
+    background: #0d0d0d;
+    z-index: 10;
+  }
+
+  /* خلفية دوائر ضوئية */
+  #startScreen::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(80,220,100,0.12) 0%, transparent 55%),
+      radial-gradient(circle at 75% 80%, rgba(40,180,255,0.10) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .start-emoji {
+    font-size: 80px;
+    animation: pulse 2.2s ease-in-out infinite;
+    margin-bottom: 28px;
+    filter: drop-shadow(0 0 18px rgba(80,220,100,0.5));
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1);   filter: drop-shadow(0 0 18px rgba(80,220,100,0.5)); }
+    50%       { transform: scale(1.08); filter: drop-shadow(0 0 32px rgba(80,220,100,0.9)); }
+  }
+
+  .start-title {
+    font-size: 24px; font-weight: 700;
+    text-align: center; line-height: 1.45;
+    padding: 0 28px;
+    background: linear-gradient(135deg, #ffffff 30%, #56dc6e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 14px;
+  }
+
+  .start-sub {
+    font-size: 14px; color: rgba(255,255,255,0.45);
+    text-align: center; padding: 0 36px; line-height: 1.6;
+    margin-bottom: 44px;
+  }
+
+  #startBtn {
+    padding: 16px 48px; font-size: 17px; font-weight: 700;
+    border: none; border-radius: 50px;
+    background: linear-gradient(135deg, #34c759, #1aab45);
+    color: #fff; cursor: pointer; letter-spacing: 0.3px;
+    box-shadow: 0 6px 28px rgba(52,199,89,0.45);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  #startBtn:active { transform: scale(0.96); box-shadow: 0 3px 14px rgba(52,199,89,0.3); }
+  #startBtn:disabled { opacity: 0.55; }
+
+  .loading-dots {
+    display: none; gap: 7px; margin-top: 22px;
+  }
+  .loading-dots.show { display: flex; }
+  .loading-dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #34c759; animation: dot 1.2s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+  #errBox {
+    display: none; color: #ff6961; font-size: 13px;
+    margin-top: 16px; text-align: center; padding: 0 32px;
+    max-width: 320px;
+  }
+
+  /* ══════════════════════════════
+     شاشة الكاميرا
+  ══════════════════════════════ */
+  #camScreen {
+    display: none; position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* الخلفية السوداء خلف كل شي */
+  #bg {
+    position: absolute; inset: 0;
+    background: #000;
+  }
+
+  /* منطقة الميم — تملأ كل الشاشة */
+  #memeBox {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; overflow: hidden;
+    transition: opacity 0.3s;
+  }
+  #memeImg {
+    width: 100%; height: 100%; object-fit: cover;
+    display: none;
+  }
+  #memePlaceholder {
+    color: rgba(255,255,255,0.15); font-size: 15px; text-align: center; padding: 24px;
+  }
+
+  /* ── الكاميرا الصغيرة (بعد المعايرة) ── */
+  #camWrap {
+    position: absolute;
+    top: 14px; left: 14px;   /* فوق اليسار */
+    width: 22vw; height: 29vw;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid rgba(52,199,89,0.7);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    z-index: 5;
+    /* في البداية تملأ الشاشة كاملة للمعايرة */
+    transition: all 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  #camWrap.fullscreen {
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 0; border: none; box-shadow: none;
+  }
+
+  #video {
+    width: 100%; height: 100%;
+    object-fit: cover; transform: scaleX(-1);
+    display: block;
+  }
+  #overlay {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* شاشة المعايرة — فوق الكاميرا الكاملة */
+  #calOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    z-index: 3;
+  }
+  #calOverlay p {
+    font-size: 18px; color: #eee; text-align: center;
+    padding: 0 24px; line-height: 1.5;
+  }
+  #calBarTrack {
+    width: 220px; height: 10px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 8px; overflow: hidden;
+  }
+  #calBarFill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #34c759, #56dc6e);
+    transition: width 0.15s linear;
+    border-radius: 8px;
+  }
+  #calPct { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+  /* زر الإغلاق */
+  #closeBtn {
+    position: absolute; top: 14px; right: 14px; z-index: 10;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,0.6); color: #ddd; border: none;
+    font-size: 15px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- شاشة البداية -->
+  <div id="startScreen">
+    <div class="start-emoji">🎭</div>
+    <div class="start-title">افتح الكاميرا واكتشف<br>من تشبه!</div>
+    <div class="start-sub">افتح الكاميرا ونحدد وياك<br>أنت تشبه مين</div>
+    <button id="startBtn">ابدأ</button>
+    <div class="loading-dots" id="loadingDots">
+      <span></span><span></span><span></span>
+    </div>
+    <div id="errBox"></div>
+  </div>
+
+  <!-- شاشة الكاميرا -->
+  <div id="camScreen">
+    <div id="bg"></div>
+
+    <!-- منطقة الميم (خلف كل شي) -->
+    <div id="memeBox">
+      <div id="memePlaceholder">اعمل وجه وشوف من تشبه 👀</div>
+      <img id="memeImg" />
+    </div>
+
+    <!-- الكاميرا (تبدأ fullscreen للمعايرة ثم تصغر) -->
+    <div id="camWrap" class="fullscreen">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <!-- شاشة المعايرة -->
+      <div id="calOverlay">
+        <p>📷 خلّك طبيعي<br>نعاير الكاميرا عليك</p>
+        <div id="calBarTrack"><div id="calBarFill"></div></div>
+        <div id="calPct">0%</div>
+      </div>
+    </div>
+
+    <button id="closeBtn">✕</button>
+  </div>
+
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
